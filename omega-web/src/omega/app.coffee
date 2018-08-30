@@ -32,7 +32,9 @@ angular.module('omega').constant 'isProfileNameReserved', (name) ->
 angular.module('omega').config ($stateProvider, $urlRouterProvider,
   $httpProvider, $animateProvider, $compileProvider) ->
   $compileProvider.aHrefSanitizationWhitelist(
-    /^\s*(https?|ftp|mailto|chrome-extension):/)
+    /^\s*(https?|ftp|mailto|chrome-extension|moz-extension):/)
+  $compileProvider.imgSrcSanitizationWhitelist(
+    /^\s*(https?|local|data|chrome-extension|moz-extension):/)
   $animateProvider.classNameFilter(/angular-animate/)
 
   $urlRouterProvider.otherwise '/about'
@@ -102,4 +104,6 @@ angular.module('omega').factory 'downloadFile', ->
       else
         browser.downloads.download({url: url})
   else
-    return saveAs
+    return (blob, filename) ->
+      noAutoBom = true
+      saveAs(blob, filename, noAutoBom)

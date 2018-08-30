@@ -474,6 +474,11 @@ msgstr ""
 msgid "options_proxy_auth"
 msgstr ""
 
+msgid "options_proxy_authNotSupported"
+msgstr "Your browser DOES NOT support $PROTOCOLDISP$ proxy authentication! "
+"Please do not report this issue to SwitchyOmega. Contact the support for "
+"your browser instead."
+
 msgid "options_proxy_authAllWarningPac"
 msgstr ""
 
@@ -755,6 +760,12 @@ msgstr ""
 
 msgid "options_proxyAuthPassword"
 msgstr ""
+
+msgid "options_proxyAuthShowPassword"
+msgstr "Show password"
+
+msgid "options_proxyAuthHidePassword"
+msgstr "Hide password"
 
 msgid "options_proxyAuthNone"
 msgstr ""

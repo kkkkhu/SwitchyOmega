@@ -4,14 +4,23 @@ Promise.longStackTraces()
 
 OmegaTargetCurrent.Log = Object.create(OmegaTargetCurrent.Log)
 Log = OmegaTargetCurrent.Log
+
+_writeLogToLocalStorage = (content) ->
+  try
+    localStorage['log'] += content
+  catch _
+    # Maybe we have reached our limit here. See #1288. Try trimming it.
+    localStorage['log'] = content
+
 Log.log = (args...) ->
   console.log(args...)
-  localStorage['log'] += args.map(Log.str.bind(Log)).join(' ') + '\n'
+  content = args.map(Log.str.bind(Log)).join(' ') + '\n'
+  _writeLogToLocalStorage(content)
 Log.error = (args...) ->
   console.error(args...)
   content = args.map(Log.str.bind(Log)).join(' ')
   localStorage['logLastError'] = content
-  localStorage['log'] += 'ERROR: ' + content + '\n'
+  _writeLogToLocalStorage('ERROR: ' + content + '\n')
 
 unhandledPromises = []
 unhandledPromisesId = []
@@ -48,10 +57,15 @@ drawIcon = (resultColor, profileColor) ->
         drawOmega drawContext, profileColor
       drawContext.setTransform(1, 0, 0, 1, 0, 0)
       icon[size] = drawContext.getImageData(0, 0, size, size)
+      if icon[size].data[3] == 255
+        # Some browsers may replace the image data with a opaque white image to
+        # resist fingerprinting. In that case the icon cannot be drawn.
+        throw new Error('Icon drawing blocked by privacy.resistFingerprinting.')
   catch e
     if not drawError?
       drawError = e
       Log.error(e)
+      Log.error('Profile-colored icon disabled. Falling back to static icon.')
     icon = null
 
   return iconCache[cacheKey] = icon
@@ -165,7 +179,10 @@ if chrome?.storage?.sync or browser?.storage?.sync
     sync.enabled = false
   sync.transformValue = OmegaTargetCurrent.Options.transformValueForSync
 
-options = new OmegaTargetCurrent.Options(null, storage, state, Log, sync)
+proxyImpl = OmegaTargetCurrent.proxy.getProxyImpl(Log)
+state.set({proxyImplFeatures: proxyImpl.features})
+options = new OmegaTargetCurrent.Options(null, storage, state, Log, sync,
+  proxyImpl)
 options.externalApi = new OmegaTargetCurrent.ExternalApi(options)
 options.externalApi.listen()
 
@@ -204,7 +221,7 @@ options._inspect = new OmegaTargetCurrent.Inspect (url, tab) ->
 options.setProxyNotControllable(null)
 timeout = null
 
-options.watchProxyChange (details) ->
+proxyImpl.watchProxyChange (details) ->
   return if options.externalApi.disabled
   return unless details
   notControllableBefore = options.proxyNotControllable()
@@ -236,10 +253,12 @@ options.watchProxyChange (details) ->
   clearTimeout(timeout) if timeout?
   parsed = null
   timeout = setTimeout (->
-    options.setExternalProfile(parsed, {noRevert: noRevert, internal: internal})
+    if parsed
+      options.setExternalProfile(parsed,
+        {noRevert: noRevert, internal: internal})
   ), 500
 
-  parsed = options.parseExternalProfile(details)
+  parsed = proxyImpl.parseExternalProfile(details, options._options)
   return
 
 external = false
